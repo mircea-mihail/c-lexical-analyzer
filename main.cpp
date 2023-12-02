@@ -11,18 +11,59 @@
 #define STRING 3
 #define SPECIAL_SYMBOL 4 
 #define OPERATOR 5
+#define ERROR 6 
+
+#define NUMBER_OF_C_OPERATORS 36
+#define NUMBER_OF_C_KEYWORDS 32
 
 class token
 {
 private:
     int m_type;
     std::string *m_value;
+
 public:
     token(int p_type, std::string *p_value):m_type(p_type), m_value(p_value) {}
 
-    void displayToken()
+    std::string getTypeString(int p_type)
     {
-        std::cout << "type: " << m_type << " value: " << *m_value << std::endl; 
+        switch (p_type)
+        {
+        case KEYWORD:
+            return "keyword";
+            break;
+
+        case IDENTIFIER:
+            return "identifier";
+            break;
+
+        case CONSTANT:
+            return "constant";
+            break;
+
+        case STRING:
+            return "string";
+            break;
+
+        case SPECIAL_SYMBOL:
+            return "special symbol";
+            break;
+            
+        case OPERATOR:
+            return "operator";
+            break;
+     
+        default:
+            break;
+        }
+        return "ERROR";
+    }
+
+
+
+    void printToken()
+    {
+        std::cout << "type: " << getTypeString(m_type) << " value: " << *m_value << std::endl; 
     }
 };
 
@@ -34,15 +75,91 @@ private:
     std::string m_readStringBuffer;
 
     std::list<token> m_tokenTable;
+
     std::list<std::string> m_valueTable;
+
+    std::string m_operatorTable[NUMBER_OF_C_OPERATORS] = {
+        "+", "-", "*", "/", "%", "++", "--", "==", "!=", ">", "<", ">=", 
+        "<=", "&&", "||", "!", "&", "|", "^", "~", ">>", "<<", "=", 
+        "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=", "?:" // last operator special case
+    };
+
+    std::string m_keywordTable[NUMBER_OF_C_KEYWORDS] = {
+        "auto", "break", "case", "char", "const", "continue", "default", "do", 
+        "double", "else", "enum", "extern", "float", "for", "goto", "if", 
+        "int", "long", "register", "return", "short", "signed", "sizeof", "static", 
+        "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"
+    };
 
     int getCharFromStream()
     {
         return m_readStream.get(); 
     }
 
-    void addToken(token p_tok)
+    bool isOperator(std::string p_token)
     {
+        for(int opIdx = 0; opIdx < NUMBER_OF_C_OPERATORS; opIdx++)
+        {
+            if (p_token == m_operatorTable[opIdx])
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool isKeyword(std::string p_token)
+    {
+        for(int kwIdx = 0; kwIdx < NUMBER_OF_C_KEYWORDS; kwIdx++)
+        {
+            if (p_token == m_keywordTable[kwIdx])
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool isDigit(char p_letter)
+    {
+        if(p_letter >= '0' && p_letter <= '9')
+        {
+            return true;
+        }
+        return false;
+    }
+
+    bool isAlphabetOrUnderscore(char p_letter)
+    {
+        if((p_letter >= 'a' && p_letter <= 'z') || (p_letter >= 'A' && p_letter <= 'Z') || p_letter == '_')
+        {
+            return true;
+        }
+        return false;
+    }
+
+    bool isIdentifier(std::string p_token)
+    {
+        if(p_token.length() <= 0)
+        {
+            return false;
+        }
+        
+        if(!isAlphabetOrUnderscore(p_token[0]))
+        {
+            return false;
+        }
+
+        for(int chIdx = 0; chIdx < p_token.length(); chIdx ++)
+        {
+            if(!isAlphabetOrUnderscore(p_token[chIdx]) && !isDigit(p_token[chIdx]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+        
     }
 
     int getType(std::string p_tokenValue)
@@ -51,16 +168,30 @@ private:
         {
             return SPECIAL_SYMBOL;
         }
-        return KEYWORD;
+        if(isOperator(p_tokenValue))
+        {
+            return OPERATOR;
+        }
+        if(isKeyword(p_tokenValue))
+        {
+            return KEYWORD;
+        }
+        if(isIdentifier(p_tokenValue))
+        {
+            return IDENTIFIER;
+        }
+
+        return ERROR;
     }
 
     std::string *checkValueInValueTable(std::string p_newValue)
     {
-        for (std::list<std::string>::iterator i = m_valueTable.begin(); i != m_valueTable.end(); i++)
+        std::list<std::string>::iterator tokenValueIt;
+        for (tokenValueIt = m_valueTable.begin(); tokenValueIt != m_valueTable.end(); tokenValueIt++)
         {
-            if(*i == p_newValue)
+            if(*tokenValueIt == p_newValue)
             {
-                return &(*i);
+                return &(*tokenValueIt);
             }
         }
         return nullptr;
@@ -82,15 +213,33 @@ private:
         m_tokenTable.emplace_back(tok);
     }
 
+    bool isDelimiter(int p_character)
+    {
+        if( p_character == ' ' || p_character == '\n' || p_character == '\t' || p_character == ';' || p_character == EOF)
+        //  || p_character == '+' || p_character == '-' || p_character == '*'  
+        //  || p_character == '/' || p_character == ',' || p_character == ';' 
+        //  || p_character == '<' || p_character == '=' || p_character == '>'
+        //  || p_character == '[' || p_character == ']' || p_character == '{'
+        //  || p_character == '(' || p_character == ')' || p_character == '}')
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     bool checkForNewToken(int &p_left, int &p_right )
     {
-        if(p_right == ' ')
+        if(isDelimiter(p_right))
         {
             int delimiter = p_right;
 
             m_readStringBuffer.pop_back();
         
-            createToken();
+            if(m_readStringBuffer != "")
+            {
+                createToken();
+            }
 
             m_readStringBuffer = ""; 
             p_left = p_right;
@@ -133,15 +282,14 @@ public:
                 m_readStringBuffer += right;
             }
         }
-        // std::cout << std::endl << "token: \"" << m_readStringBuffer << "\"" << std::endl;
-
     }
 
     void printTokens()
     {
-        for (std::list<token>::iterator i = m_tokenTable.begin(); i != m_tokenTable.end(); i++)
+        std::list<token>::iterator tokenIt;
+        for (tokenIt = m_tokenTable.begin(); tokenIt != m_tokenTable.end(); tokenIt++)
         {
-            i->displayToken();
+            tokenIt->printToken();
         }
     }
 

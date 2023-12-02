@@ -292,7 +292,8 @@ private:
         // std::cout << std::endl << "current type: " << getType(p_currentPotentialToken) << std::endl;
         if(getType(p_currentPotentialToken) == ERROR)
         {
-            int delimiter = p_currentChar;
+            std::string delimiter = ""; 
+            delimiter += p_currentChar;
 
             p_currentPotentialToken.pop_back();
         
@@ -301,7 +302,12 @@ private:
                 createToken(p_currentPotentialToken);
             }
 
-            p_currentPotentialToken = ""; 
+            p_currentPotentialToken = "";
+
+            if(getType(delimiter) != ERROR)
+            {
+                p_currentPotentialToken += delimiter; 
+            }
 
             return true;
         }
@@ -329,13 +335,14 @@ public:
         m_readStringBuffer = currentChar;
         while(currentChar != EOF)
         {
-            std::cout << char(currentChar);
+            // if i found a token i want to stall it to re-check the last character that produced an error
+            if(!checkForNewToken(currentChar, m_readStringBuffer))
+            {
+                std::cout << char(currentChar);                
 
-            checkForNewToken(currentChar, m_readStringBuffer);
-
-            currentChar = getCharFromStream();
-
-            m_readStringBuffer += currentChar;
+                currentChar = getCharFromStream();
+                m_readStringBuffer += currentChar;
+            }
         }
         // checkForNewToken(left, right, m_readStringBuffer);
     }

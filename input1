@@ -1,2 +1,2 @@
-int a += 8.4 + 12;
+int a+=8.4 + 12;
 char * b = "salut"

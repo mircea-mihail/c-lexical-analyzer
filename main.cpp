@@ -7,11 +7,11 @@
 
 #define KEYWORD 0
 #define IDENTIFIER 1
-#define CONSTANT 2
+#define CONSTANT_NUMERAL 2
 #define STRING 3
 #define SPECIAL_SYMBOL 4 
 #define OPERATOR 5
-#define ERROR 6 
+#define ERROR 6
 
 #define NUMBER_OF_C_OPERATORS 36
 #define NUMBER_OF_C_KEYWORDS 32
@@ -37,8 +37,8 @@ public:
             return "identifier";
             break;
 
-        case CONSTANT:
-            return "constant";
+        case CONSTANT_NUMERAL:
+            return "constant numeral";
             break;
 
         case STRING:
@@ -63,7 +63,7 @@ public:
 
     void printToken()
     {
-        std::cout << "type: " << getTypeString(m_type) << " value: " << *m_value << std::endl; 
+        std::cout  << " value: " << *m_value  << "\ttype: " << getTypeString(m_type)<< std::endl; 
     }
 };
 
@@ -158,16 +158,58 @@ private:
             }
         }
 
+        return true;   
+    }
+
+    bool isConstantNumeral(std::string p_token)
+    {
+        for(int chIdx = 0; chIdx < p_token.length(); chIdx ++)
+        {
+            if(!isDigit(p_token[chIdx]) && (p_token[chIdx] != '.'))
+            {
+                return false;
+            }
+        }
         return true;
+    }
+
+    bool isCompleteString(std::string p_token)
+    {
+        if(p_token[0] == '"' && p_token[p_token.length() - 1] == '"')
+        {
+            return true;
+        }
+        return false;
+    }   
+
+    // to make it work with the general program logic i made it return true even when the string is "smth", it only returns false
+    // when the string also has a char after the second quote
+    bool isPartialString(std::string p_token)
+    {
+        if(p_token[0] != '"')
+        {
+            return false;
+        }
         
+        int numberOfQuotes = 0;
+        for(int stIdx = 0; stIdx < p_token.length() - 1; stIdx ++)
+        {
+            if(p_token[stIdx] == '"')
+            {
+                numberOfQuotes ++;
+            }
+        }
+        
+        if(numberOfQuotes >1)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     int getType(std::string p_tokenValue)
     {   
-        if(p_tokenValue == " ")
-        {
-            return SPECIAL_SYMBOL;
-        }
         if(isOperator(p_tokenValue))
         {
             return OPERATOR;
@@ -179,6 +221,14 @@ private:
         if(isIdentifier(p_tokenValue))
         {
             return IDENTIFIER;
+        }
+        if(isConstantNumeral(p_tokenValue))
+        {
+            return CONSTANT_NUMERAL;
+        }
+        if(isPartialString(p_tokenValue))
+        {
+            return STRING;
         }
 
         return ERROR;
@@ -197,18 +247,27 @@ private:
         return nullptr;
     }    
 
-    void createToken()
+    void createToken(std::string &p_currentPotentialToken)
     {
-        std::string *pointerToTokenValue = checkValueInValueTable(m_readStringBuffer);            
+        std::string *pointerToTokenValue = checkValueInValueTable(p_currentPotentialToken);            
 
         if(pointerToTokenValue == nullptr)
         {
-            m_valueTable.emplace_back(m_readStringBuffer);
+            m_valueTable.emplace_back(p_currentPotentialToken);
 
             pointerToTokenValue = &m_valueTable.back();
         }
 
-        token tok(getType(m_readStringBuffer), pointerToTokenValue);
+        int tokenType = getType(p_currentPotentialToken);
+        if(tokenType == STRING)
+        {
+            if(!isCompleteString(p_currentPotentialToken))
+            {
+                tokenType = ERROR;
+            }
+        }
+
+        token tok(tokenType, pointerToTokenValue);
 
         m_tokenTable.emplace_back(tok);
     }
@@ -228,21 +287,21 @@ private:
         return false;
     }
 
-    bool checkForNewToken(int &p_left, int &p_right )
+    bool checkForNewToken(int &p_currentChar, std::string &p_currentPotentialToken )
     {
-        if(isDelimiter(p_right))
+        // std::cout << std::endl << "current type: " << getType(p_currentPotentialToken) << std::endl;
+        if(getType(p_currentPotentialToken) == ERROR)
         {
-            int delimiter = p_right;
+            int delimiter = p_currentChar;
 
-            m_readStringBuffer.pop_back();
+            p_currentPotentialToken.pop_back();
         
-            if(m_readStringBuffer != "")
+            if(p_currentPotentialToken != "")
             {
-                createToken();
+                createToken(p_currentPotentialToken);
             }
 
-            m_readStringBuffer = ""; 
-            p_left = p_right;
+            p_currentPotentialToken = ""; 
 
             return true;
         }
@@ -265,23 +324,20 @@ public:
     // parses the file given and splits it into tokens
     void parseFile()
     {
-        int left = 0;
-        int right = 0;
-        right = getCharFromStream();
-        m_readStringBuffer = right;
-        while(right != EOF)
+        int currentChar = 0;
+        currentChar = getCharFromStream();
+        m_readStringBuffer = currentChar;
+        while(currentChar != EOF)
         {
-            std::cout << char(right);
+            std::cout << char(currentChar);
 
-            checkForNewToken(left, right);
+            checkForNewToken(currentChar, m_readStringBuffer);
 
-            right = getCharFromStream();
+            currentChar = getCharFromStream();
 
-            if(right != EOF)
-            {
-                m_readStringBuffer += right;
-            }
+            m_readStringBuffer += currentChar;
         }
+        // checkForNewToken(left, right, m_readStringBuffer);
     }
 
     void printTokens()

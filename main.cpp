@@ -13,6 +13,9 @@
 #define OPERATOR 5
 #define ERROR 6
 
+#define SINGLE_LINE_COMMENT 7
+#define MULTI_LINE_COMMENT 8
+
 #define NUMBER_OF_C_OPERATORS 36
 #define NUMBER_OF_C_KEYWORDS 32
 
@@ -208,25 +211,71 @@ private:
         return true;
     }
 
-    int getType(std::string p_tokenValue)
+    bool isSingleLineComment(std::string p_token)
+    {
+        if(!(p_token[0] == '/' && p_token[1] == '/'))
+        {
+            return false;
+        }
+        for(int i = 0; i < p_token.length(); i++)
+        {
+            if(p_token[i] == '\n')
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // similar trick to the one above, used for the strings
+    bool isPartialMultiLineComment(std::string p_token)
+    {
+        if(!(p_token[0] == '/' && p_token[1] == '*'))
+        {
+            return false;
+        }
+        // multiline comment has to have at least a leangth of 4 : /**/ so return true as in 
+        // it could still be a multiline comment 
+        if(p_token.length() <= 4)
+        {
+            return true;
+        }
+
+        if(p_token[p_token.length() - 3] == '*' && p_token[p_token.length() - 2] == '/')
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    int getType(std::string p_token)
     {   
-        if(isOperator(p_tokenValue))
+        if(isSingleLineComment(p_token))
+        {
+            return SINGLE_LINE_COMMENT;
+        }
+        if(isPartialMultiLineComment(p_token))
+        {
+            return MULTI_LINE_COMMENT;
+        }
+        if(isOperator(p_token))
         {
             return OPERATOR;
         }
-        if(isKeyword(p_tokenValue))
+        if(isKeyword(p_token))
         {
             return KEYWORD;
         }
-        if(isIdentifier(p_tokenValue))
+        if(isIdentifier(p_token))
         {
             return IDENTIFIER;
         }
-        if(isConstantNumeral(p_tokenValue))
+        if(isConstantNumeral(p_token))
         {
             return CONSTANT_NUMERAL;
         }
-        if(isPartialString(p_tokenValue))
+        if(isPartialString(p_token))
         {
             return STRING;
         }
@@ -259,6 +308,13 @@ private:
         }
 
         int tokenType = getType(p_currentPotentialToken);
+
+        // comments are not tokens and must be ignored
+        if(tokenType == SINGLE_LINE_COMMENT || tokenType == MULTI_LINE_COMMENT)
+        {
+            return;
+        }
+
         if(tokenType == STRING)
         {
             if(!isCompleteString(p_currentPotentialToken))
@@ -335,6 +391,10 @@ public:
         m_readStringBuffer = currentChar;
         while(currentChar != EOF)
         {
+            // if the current token is a comment read it till the end and then start checking for tokens again
+            // check for comment?
+
+
             // if i found a token i want to stall it to re-check the last character that produced an error
             if(!checkForNewToken(currentChar, m_readStringBuffer))
             {
@@ -379,5 +439,9 @@ int main(int argc, char *argv[])
     // initialise the input stream with the file given in the argv
     lexicalAnalyser lexAn(argv[argc - 1]);
     lexAn.parseFile();
+
+    std::cout << std::endl;
+    std::cout << std::endl;
+
     lexAn.printTokens();
 }

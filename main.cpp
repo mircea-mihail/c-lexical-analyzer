@@ -3,15 +3,9 @@
 #include <list>
 #include <cstring>
 
-#define NUMBER_OF_ALLOWED_ARGUMENTS 2
+#include "token.h"
 
-#define KEYWORD 0
-#define IDENTIFIER 1
-#define CONSTANT_NUMERAL 2
-#define STRING 3
-#define SPECIAL_SYMBOL 4 
-#define OPERATOR 5
-#define ERROR 6
+#define NUMBER_OF_ALLOWED_ARGUMENTS 3
 
 #define SINGLE_LINE_COMMENT 7
 #define MULTI_LINE_COMMENT 8
@@ -19,55 +13,6 @@
 #define NUMBER_OF_C_OPERATORS 36
 #define NUMBER_OF_C_KEYWORDS 32
 #define NUMBER_OF_C_SPECIAL_SYMBOLS 14
-
-class token
-{
-private:
-    int m_type;
-    std::string *m_value;
-
-public:
-    token(int p_type, std::string *p_value):m_type(p_type), m_value(p_value) {}
-
-    std::string getTypeString(int p_type)
-    {
-        switch (p_type)
-        {
-        case KEYWORD:
-            return "keyword";
-            break;
-
-        case IDENTIFIER:
-            return "identifier";
-            break;
-
-        case CONSTANT_NUMERAL:
-            return "constant numeral";
-            break;
-
-        case STRING:
-            return "string";
-            break;
-
-        case SPECIAL_SYMBOL:
-            return "special symbol";
-            break;
-            
-        case OPERATOR:
-            return "operator";
-            break;
-     
-        default:
-            break;
-        }
-        return "ERROR";
-    }
-
-    void printToken()
-    {
-        std::cout  << " value: " << *m_value  << "\ttype: " << getTypeString(m_type)<< std::endl; 
-    }
-};
 
 class lexicalAnalyser
 {
@@ -195,10 +140,10 @@ private:
             return false;
         }
         
-        int numberOfQuotes = 0;
-        for(int stIdx = 0; stIdx < p_token.length() - 1; stIdx ++)
+        int numberOfQuotes = 1; // the first quote
+        for(int stIdx = 1; stIdx < p_token.length() - 1; stIdx ++)
         {
-            if(p_token[stIdx] == '"')
+            if(p_token[stIdx] == '"' && p_token[stIdx - 1] != '\\')
             {
                 numberOfQuotes ++;
             }
@@ -468,15 +413,24 @@ void printInputRequirements()
 
 int main(int argc, char *argv[])
 {
-    // only one argument allowed -> the name of the input file
-    if(argc < NUMBER_OF_ALLOWED_ARGUMENTS || argc > NUMBER_OF_ALLOWED_ARGUMENTS)
+    if(argc > NUMBER_OF_ALLOWED_ARGUMENTS || argc < NUMBER_OF_ALLOWED_ARGUMENTS - 1)
     {
         printInputRequirements();
         exit(EXIT_FAILURE);
     }
 
+    std::ofstream outputStream;
+    if(argc == NUMBER_OF_ALLOWED_ARGUMENTS)
+    {
+        outputStream.open(argv[argc-1]);
+    }
+    else
+    {
+        outputStream.open("output");    
+    }
+
     // initialise the input stream with the file given in the argv
-    lexicalAnalyser lexAn(argv[argc - 1]);
+    lexicalAnalyser lexAn(argv[1]);
 
     if(lexAn.startReading())
     {
@@ -484,17 +438,21 @@ int main(int argc, char *argv[])
         
         while(tok != nullptr)
         {
-            tok->printToken();
+            tok->printToken(&outputStream);
             delete tok;
             tok = lexAn.getToken();
         }
     }
+    // std::cout << "\n\n" << 3e-4 << std::endl;
     
+    outputStream.close();
     return 0;
 }
 
 /*
-    sa tratez \ string
+    sa gasesc chars
+
+    sa fac constantele sa vada e-1 sau e1 sau e-1523
 
     sa se vada mai clar automatul
     

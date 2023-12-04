@@ -1,8 +1,0 @@
-int main()
-{
-	// this is a comment
-	int a /* tricky comment */ = 7;
-	a++;
-	return 0;
-
-}

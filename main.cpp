@@ -18,6 +18,7 @@
 
 #define NUMBER_OF_C_OPERATORS 36
 #define NUMBER_OF_C_KEYWORDS 32
+#define NUMBER_OF_C_SPECIAL_SYMBOLS 14
 
 class token
 {
@@ -62,8 +63,6 @@ public:
         return "ERROR";
     }
 
-
-
     void printToken()
     {
         std::cout  << " value: " << *m_value  << "\ttype: " << getTypeString(m_type)<< std::endl; 
@@ -73,11 +72,11 @@ public:
 class lexicalAnalyser
 {
 private:
+    int m_currentChar = 0;
+
     std::string m_fileName;
     std::ifstream m_readStream;
     std::string m_readStringBuffer;
-
-    std::list<token> m_tokenTable;
 
     std::list<std::string> m_valueTable;
 
@@ -94,10 +93,11 @@ private:
         "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"
     };
 
-    int getCharFromStream()
-    {
-        return m_readStream.get(); 
-    }
+    std::string m_specialSymbolTable[NUMBER_OF_C_SPECIAL_SYMBOLS] = {
+        "[", "]", "{", "}", ".",
+        "(", ")", ",", ";", 
+        ":", "*", "...", "=", "#"
+    };
 
     bool isOperator(std::string p_token)
     {
@@ -249,6 +249,18 @@ private:
         return true;
     }
 
+    bool isSpecialSymbol(std::string p_token)
+    {
+        for(int spSyIdx = 0; spSyIdx < NUMBER_OF_C_SPECIAL_SYMBOLS; spSyIdx++)
+        {
+            if (p_token == m_specialSymbolTable[spSyIdx])
+            {
+                return true;
+            }
+        }
+        return false;   
+    }
+
     int getType(std::string p_token)
     {   
         if(isSingleLineComment(p_token))
@@ -279,6 +291,10 @@ private:
         {
             return STRING;
         }
+        if(isSpecialSymbol(p_token))
+        {
+            return SPECIAL_SYMBOL;
+        }
 
         return ERROR;
     }
@@ -296,7 +312,7 @@ private:
         return nullptr;
     }    
 
-    void createToken(std::string &p_currentPotentialToken)
+    token *createToken(std::string &p_currentPotentialToken)
     {
         std::string *pointerToTokenValue = checkValueInValueTable(p_currentPotentialToken);            
 
@@ -312,7 +328,7 @@ private:
         // comments are not tokens and must be ignored
         if(tokenType == SINGLE_LINE_COMMENT || tokenType == MULTI_LINE_COMMENT)
         {
-            return;
+            return nullptr;
         }
 
         if(tokenType == STRING)
@@ -323,55 +339,33 @@ private:
             }
         }
 
-        token tok(tokenType, pointerToTokenValue);
+        token *tok = new token(tokenType, pointerToTokenValue);
 
-        m_tokenTable.emplace_back(tok);
+        return tok;
     }
 
-    bool isDelimiter(int p_character)
-    {
-        if( p_character == ' ' || p_character == '\n' || p_character == '\t' || p_character == ';' || p_character == EOF)
-        //  || p_character == '+' || p_character == '-' || p_character == '*'  
-        //  || p_character == '/' || p_character == ',' || p_character == ';' 
-        //  || p_character == '<' || p_character == '=' || p_character == '>'
-        //  || p_character == '[' || p_character == ']' || p_character == '{'
-        //  || p_character == '(' || p_character == ')' || p_character == '}')
-        {
-            return true;
-        }
+    // bool isDelimiter(int p_character)
+    // {
+    //     if( p_character == ' ' || p_character == '\n' || p_character == '\t' || p_character == ';' || p_character == EOF)
+    //     //  || p_character == '+' || p_character == '-' || p_character == '*'  
+    //     //  || p_character == '/' || p_character == ',' || p_character == ';' 
+    //     //  || p_character == '<' || p_character == '=' || p_character == '>'
+    //     //  || p_character == '[' || p_character == ']' || p_character == '{'
+    //     //  || p_character == '(' || p_character == ')' || p_character == '}')
+    //     {
+    //         return true;
+    //     }
 
-        return false;
-    }
-
-    bool checkForNewToken(int &p_currentChar, std::string &p_currentPotentialToken )
-    {
-        // std::cout << std::endl << "current type: " << getType(p_currentPotentialToken) << std::endl;
-        if(getType(p_currentPotentialToken) == ERROR)
-        {
-            std::string delimiter = ""; 
-            delimiter += p_currentChar;
-
-            p_currentPotentialToken.pop_back();
-        
-            if(p_currentPotentialToken != "")
-            {
-                createToken(p_currentPotentialToken);
-            }
-
-            p_currentPotentialToken = "";
-
-            if(getType(delimiter) != ERROR)
-            {
-                p_currentPotentialToken += delimiter; 
-            }
-
-            return true;
-        }
-
-        return false;
-    }
+    //     return false;
+    // }
+    
 
 public:
+    int getCharFromStream()
+    {
+        return m_readStream.get(); 
+    }
+
     // initialises the m_readStream using the filename given as an argument
     lexicalAnalyser(std::string p_fileName):m_fileName(p_fileName)
     {
@@ -383,37 +377,65 @@ public:
         }
     };
 
-    // parses the file given and splits it into tokens
-    void parseFile()
+    token *checkForNewToken(int &p_currentChar, std::string &p_currentPotentialToken )
     {
-        int currentChar = 0;
-        currentChar = getCharFromStream();
-        m_readStringBuffer = currentChar;
-        while(currentChar != EOF)
+        // std::cout << std::endl << "current type: " << getType(p_currentPotentialToken) << std::endl;
+        if(getType(p_currentPotentialToken) == ERROR)
         {
-            // if the current token is a comment read it till the end and then start checking for tokens again
-            // check for comment?
+            std::string delimiter = ""; 
+            token *tok = nullptr;
+            delimiter += p_currentChar;
 
-
-            // if i found a token i want to stall it to re-check the last character that produced an error
-            if(!checkForNewToken(currentChar, m_readStringBuffer))
+            p_currentPotentialToken.pop_back();
+        
+            if(p_currentPotentialToken != "")
             {
-                std::cout << char(currentChar);                
-
-                currentChar = getCharFromStream();
-                m_readStringBuffer += currentChar;
+                tok = createToken(p_currentPotentialToken);
             }
+
+            p_currentPotentialToken = "";
+
+            if(getType(delimiter) != ERROR)
+            {
+                p_currentPotentialToken += delimiter; 
+            }
+
+            return tok;
         }
-        // checkForNewToken(left, right, m_readStringBuffer);
+
+        return nullptr;
     }
 
-    void printTokens()
+    bool startReading()
     {
-        std::list<token>::iterator tokenIt;
-        for (tokenIt = m_tokenTable.begin(); tokenIt != m_tokenTable.end(); tokenIt++)
+        m_currentChar = getCharFromStream();
+        if(m_currentChar == EOF)
         {
-            tokenIt->printToken();
+            return false;
         }
+
+        m_readStringBuffer = m_currentChar;
+        
+        return true;
+    }
+
+    token *getToken()
+    {
+        while(m_currentChar != EOF)
+        {
+            token *tok = checkForNewToken(m_currentChar, m_readStringBuffer);
+
+            if(tok == nullptr)
+            {
+                m_currentChar = getCharFromStream();
+                m_readStringBuffer += m_currentChar;
+            }
+            else
+            {
+                return tok;
+            }
+        }
+        return nullptr;
     }
 
     ~lexicalAnalyser()
@@ -438,10 +460,28 @@ int main(int argc, char *argv[])
 
     // initialise the input stream with the file given in the argv
     lexicalAnalyser lexAn(argv[argc - 1]);
-    lexAn.parseFile();
 
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    lexAn.printTokens();
+    if(lexAn.startReading())
+    {
+        token *tok = lexAn.getToken();
+        
+        while(tok != nullptr)
+        {
+            tok->printToken();
+            delete tok;
+            tok = lexAn.getToken();
+        }
+    }
+    
+    return 0;
 }
+
+/*
+    sa tratez \ string
+
+    sa se vada mai clar automatul
+    
+    si sa afisez eroarea respectiva
+    
+    sa treaca peste testele alea
+*/

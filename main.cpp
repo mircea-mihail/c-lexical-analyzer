@@ -73,6 +73,7 @@ class lexicalAnalyser
 {
 private:
     int m_currentChar = 0;
+    int m_currentLine = 0;
 
     std::string m_fileName;
     std::ifstream m_readStream;
@@ -201,9 +202,15 @@ private:
             {
                 numberOfQuotes ++;
             }
+            
+            if(p_token[stIdx] == '\n' && p_token[stIdx - 1] != '\\')
+            {
+                std::cout << "Bad string at line " << m_currentLine << std::endl;
+                exit(EXIT_FAILURE);
+            }
         }
         
-        if(numberOfQuotes >1)
+        if(numberOfQuotes > 1)
         {
             return false;
         }
@@ -414,6 +421,11 @@ public:
             return false;
         }
 
+        if(m_currentChar == '\n')
+        {
+            m_currentLine ++;
+        }
+
         m_readStringBuffer = m_currentChar;
         
         return true;
@@ -429,6 +441,11 @@ public:
             {
                 m_currentChar = getCharFromStream();
                 m_readStringBuffer += m_currentChar;
+
+                if(m_currentChar == '\n')
+                {
+                    m_currentLine ++;
+                }
             }
             else
             {
